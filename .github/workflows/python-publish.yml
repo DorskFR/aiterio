@@ -28,15 +28,15 @@ jobs:
 
     - name: Install dependencies
       run: |
-        source $HOME/.rye/env
+        source "$HOME/.rye/env"
         rye sync
 
     - name: Build package
       run: |
-        source $HOME/.rye/env
+        source "$HOME/.rye/env"
         rye build
 
     - name: Publish package
       run: |
-        source $HOME/.rye/env
+        source "$HOME/.rye/env"
         rye publish --token ${{ secrets.PYPI_API_TOKEN }} --yes
