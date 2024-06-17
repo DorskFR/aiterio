@@ -1,6 +1,6 @@
 [project]
 name = "aiterio"
-version = "0.1.0"
+version = "0.1.2"
 description = "AsyncIterator based connectable components"
 authors = [
     { name = "DorskFR", email = "dorsk.dev@gmail.com" }
@@ -28,7 +28,7 @@ dev-dependencies = [
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["pipeline"]
+packages = ["aiterio"]
 
 [tool.ruff]
 cache-dir = ".cache/ruff_cache"
