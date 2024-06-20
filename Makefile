@@ -22,6 +22,8 @@ clean:
 	find . -type d -name .mypy_cache -prune -exec rm -rf {} \;
 	find . -type d -name .pytest_cache -prune -exec rm -rf {} \;
 	find . -type d -name .ruff_cache -prune -exec rm -rf {} \;
+	find . -type d -name .venv -prune -exec rm -rf {} \;
+	find . -type d -name dist -prune -exec rm -rf {} \;
 	find . -type d -name venv -prune -exec rm -rf {} \;
 
 lint:
