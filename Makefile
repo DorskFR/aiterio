@@ -3,8 +3,6 @@ PYTHON ?= ./.venv/bin/python
 APP ?= aiterio
 BENCHS ?= benchmarks
 TESTS ?= tests
-REPOSITORY_URL ?= ghcr.io/dorskfr/$(APP)
-IMAGE_TAG ?= latest
 
 all: setup lint/fix lint mypy test
 
