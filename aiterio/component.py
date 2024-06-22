@@ -21,7 +21,7 @@ class Component(ABC, AsyncIterator):
     """
 
     _instances: ClassVar[list[ReferenceType[Component]]] = []
-    _type_checking = bool(os.getenv("TYPE_CHECKING", "False"))
+    _type_checking = bool(os.getenv("TYPE_CHECKING", 0))
 
     @classmethod
     def instances(cls) -> list[Component]:
