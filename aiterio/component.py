@@ -119,11 +119,16 @@ class Component(ABC, AsyncIterator):
         If the flag is activated, this function checks the type of items against type hints at runtime
         """
         sig = inspect.signature(self.process)
-        for idx, (name, param) in enumerate(sig.parameters.items()):
-            if isinstance(item, list | tuple) and not isinstance(item[idx], param.annotation):
+        for name, param in sig.parameters.items():
+            if (
+                hasattr(param.annotation, "__origin__")
+                and param.annotation.__origin__ in [list, tuple]
+                and not isinstance(item, list | tuple)
+            ):
+                # May consider something recursive to test each parameter
                 self.stop()
                 raise TypeError(
-                    f"Parameter '{name}' should be of type {param.annotation}, but was {type(item[idx])} {item[idx]=}"
+                    f"Parameter '{name}' should be of type {param.annotation.__origin__}, but was {type(item)}"
                 )
             if not isinstance(item, param.annotation):
                 self.stop()
