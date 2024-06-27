@@ -67,7 +67,8 @@ class Component(ABC, AsyncIterator):
         if self._prev_component:
             self._prev_component.stop()
 
-    async def _wrap_source(self, source: Source) -> AsyncIterator[Any]:
+    @staticmethod
+    async def _wrap_source(source: Source) -> AsyncIterator[Any]:
         """
         A helper method to wrap synchronous iterators with async functionality and yield items.
         """
@@ -99,10 +100,19 @@ class Component(ABC, AsyncIterator):
 
     def source(self, source: Source) -> Component:
         """
-        Transforms a Source into an AsyncIterator and sets it as this component's data source
+        This method can be called on any element of a chain.
+        It transforms a Source into an AsyncIterator and based on the type of Source:
+        - Iterator/AsyncIterator: it will propagate to the first component and reset the pipeline.
+        - Component: such as when called by `.then` it sets the previous component as the source.
         """
+        if self._prev_component:
+            self._prev_component.source(source)
+            self._source_iter = self._make_source_iter(self._prev_component)
+            return self
+
         if isinstance(source, Component):
             self._prev_component = source
+
         self._source_iter = self._make_source_iter(source)
         return self
 
