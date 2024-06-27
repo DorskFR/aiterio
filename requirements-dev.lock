@@ -9,6 +9,7 @@
 #   generate-hashes: false
 
 -e file:.
+importlib-metadata==7.2.1
 iniconfig==2.0.0
     # via pytest
 mypy==1.10.0
@@ -25,3 +26,5 @@ ruff==0.4.8
 typing-extensions==4.12.2
     # via mypy
 vulture==2.11
+zipp==3.19.2
+    # via importlib-metadata
