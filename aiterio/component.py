@@ -105,6 +105,8 @@ class Component(ABC, AsyncIterator):
         - Iterator/AsyncIterator: it will propagate to the first component and reset the pipeline.
         - Component: such as when called by `.then` it sets the previous component as the source.
         """
+        self._source_iter = None
+
         if self._prev_component:
             self._prev_component.source(source)
             self._source_iter = self._make_source_iter(self._prev_component)
