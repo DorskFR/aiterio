@@ -1,6 +1,6 @@
 [project]
 name = "aiterio"
-version = "0.1.4"
+version = "0.1.5"
 description = "AsyncIterator based connectable components"
 authors = [
     { name = "DorskFR", email = "dorsk.dev@gmail.com" }
