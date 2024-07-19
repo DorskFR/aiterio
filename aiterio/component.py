@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
-import os
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Iterable
 from typing import Any, ClassVar
@@ -21,7 +19,6 @@ class Component(ABC, AsyncIterator):
     """
 
     _instances: ClassVar[list[ReferenceType[Component]]] = []
-    _type_checking = bool(os.getenv("TYPE_CHECKING", 0))
 
     @classmethod
     def instances(cls) -> list[Component]:
@@ -74,15 +71,11 @@ class Component(ABC, AsyncIterator):
         """
         if isinstance(source, AsyncIterator):
             async for item in source:
-                # Note:
-                # For safety we could have a forced await asyncio.sleep(0) here as it is easy to write an async iterator
-                # that is never yielding back control to the event loop between iterations but this hurts performance so
-                # leaving up to the user to use a valid async iterator that includes at least one await instruction
                 yield item
         elif isinstance(source, Iterable):
             for item in source:
-                await asyncio.sleep(0)  # Yield control to keep the event loop responsive
                 yield item
+                await asyncio.sleep(0)  # Yield control to keep the event loop responsive
         else:
             raise ComponentError("Source data must be an Iterable or AsyncIterator.")
 
@@ -92,11 +85,9 @@ class Component(ABC, AsyncIterator):
         This method combines fetching and processing logic.
         """
         async for item in self._wrap_source(source):
-            if self._type_checking:
-                self._type_check(item)
             async for processed_item in self.process(item):
-                # Same as the note above
                 yield processed_item
+                await asyncio.sleep(0)  # Yield control to keep the event loop responsive
 
     def source(self, source: Source) -> Component:
         """
@@ -125,28 +116,6 @@ class Component(ABC, AsyncIterator):
         if not self.is_running:
             raise StopAsyncIteration
         return await self._source_iter.__anext__()
-
-    def _type_check(self, item: Any) -> None:
-        """
-        If the flag is activated, this function checks the type of items against type hints at runtime
-        """
-        sig = inspect.signature(self.process)
-        for name, param in sig.parameters.items():
-            if (
-                hasattr(param.annotation, "__origin__")
-                and param.annotation.__origin__ in [list, tuple]
-                and not isinstance(item, list | tuple)
-            ):
-                # May consider something recursive to test each parameter
-                self.stop()
-                raise TypeError(
-                    f"Parameter '{name}' should be of type {param.annotation.__origin__}, but was {type(item)}"
-                )
-            if not isinstance(item, param.annotation):
-                self.stop()
-                raise TypeError(
-                    f"Parameter '{name}' should be of type {param.annotation}, but was {type(item)} {item=}"
-                )
 
     @abstractmethod
     async def process(self, item: Any) -> AsyncIterator[Any]:
