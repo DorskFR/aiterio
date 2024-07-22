@@ -40,54 +40,43 @@ class Component(ABC, AsyncIterator):
         """
         cls._instances.remove(ref)
 
-    def __init__(self) -> None:
+    def __init__(self, shutdown: asyncio.Event | None = None) -> None:
         """
         Init registers the instance. By default an instance does nothing.
         """
         self.__class__.register_instance(self)
         self._prev_component: Component | None = None
-        self._source_iter: AsyncIterator
-        self._is_running = True
+        self._source: AsyncIterator | None = None
+        self._shutdown = shutdown
 
     @property
     def is_running(self) -> bool:
         """
         Can be overriden to define what is_running means.
         """
-        return self._is_running
+        if self._shutdown is None:
+            return True
+        return not self._shutdown.is_set()
 
-    def stop(self) -> None:
+    async def _wrap_source(self, source: Source) -> AsyncIterator[Any]:
         """
-        Can be overriden for custom stop logic.
-        """
-        self._is_running = False
-        if self._prev_component:
-            self._prev_component.stop()
-
-    @staticmethod
-    async def _wrap_source(source: Source) -> AsyncIterator[Any]:
-        """
-        A helper method to wrap synchronous iterators with async functionality and yield items.
+        Combines source wrapping and processing into a single generator function.
         """
         if isinstance(source, AsyncIterator):
             async for item in source:
-                yield item
+                async for processed_item in self.process(item):
+                    yield processed_item
         elif isinstance(source, Iterable):
             for item in source:
-                yield item
+                async for processed_item in self.process(item):
+                    yield processed_item
                 await asyncio.sleep(0)  # Yield control to keep the event loop responsive
+        elif isinstance(source, Component):
+            async for item in source:
+                async for processed_item in self.process(item):
+                    yield processed_item
         else:
-            raise ComponentError("Source data must be an Iterable or AsyncIterator.")
-
-    async def _make_source_iter(self, source: Source) -> AsyncIterator[Any]:
-        """
-        Generate items from the source data and process each item.
-        This method combines fetching and processing logic.
-        """
-        async for item in self._wrap_source(source):
-            async for processed_item in self.process(item):
-                yield processed_item
-                await asyncio.sleep(0)  # Yield control to keep the event loop responsive
+            raise ComponentError("Source data must be an Iterable, AsyncIterator, or Component.")
 
     def source(self, source: Source) -> Component:
         """
@@ -96,17 +85,17 @@ class Component(ABC, AsyncIterator):
         - Iterator/AsyncIterator: it will propagate to the first component and reset the pipeline.
         - Component: such as when called by `.then` it sets the previous component as the source.
         """
-        self._source_iter = None
+        self._source = None
 
         if self._prev_component:
             self._prev_component.source(source)
-            self._source_iter = self._make_source_iter(self._prev_component)
+            self._source = self._wrap_source(self._prev_component)
             return self
 
         if isinstance(source, Component):
             self._prev_component = source
 
-        self._source_iter = self._make_source_iter(source)
+        self._source = self._wrap_source(source)
         return self
 
     def __aiter__(self) -> AsyncIterator[Any]:
@@ -115,7 +104,9 @@ class Component(ABC, AsyncIterator):
     async def __anext__(self) -> Any:
         if not self.is_running:
             raise StopAsyncIteration
-        return await self._source_iter.__anext__()
+        if not self._source:
+            raise ComponentError("There is no source iterator defined, call .source() first")
+        return await self._source.__anext__()
 
     @abstractmethod
     async def process(self, item: Any) -> AsyncIterator[Any]:
@@ -138,6 +129,15 @@ class Component(ABC, AsyncIterator):
         """
         async for _ in self:
             pass
+
+    def stop(self) -> None:
+        """
+        Can be overriden for custom stop logic.
+        """
+        if self._shutdown:
+            self._shutdown.set()
+        if self._prev_component:
+            self._prev_component.stop()
 
 
 Source = Component | Iterable[Any] | AsyncIterator[Any]
