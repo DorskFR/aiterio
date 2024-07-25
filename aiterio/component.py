@@ -47,16 +47,16 @@ class Component(ABC, AsyncIterator):
         self.__class__.register_instance(self)
         self._prev_component: Component | None = None
         self._source: AsyncIterator | None = None
-        self._shutdown = shutdown
+        self._shutdown_event = shutdown
 
     @property
     def is_running(self) -> bool:
         """
         Can be overriden to define what is_running means.
         """
-        if self._shutdown is None:
+        if self._shutdown_event is None:
             return True
-        return not self._shutdown.is_set()
+        return not self._shutdown_event.is_set()
 
     async def _wrap_source(self, source: Source) -> AsyncIterator[Any]:
         """
@@ -66,15 +66,12 @@ class Component(ABC, AsyncIterator):
             async for item in source:
                 async for processed_item in self.process(item):
                     yield processed_item
+                    await asyncio.sleep(0)
         elif isinstance(source, Iterable):
             for item in source:
                 async for processed_item in self.process(item):
                     yield processed_item
-                await asyncio.sleep(0)  # Yield control to keep the event loop responsive
-        elif isinstance(source, Component):
-            async for item in source:
-                async for processed_item in self.process(item):
-                    yield processed_item
+                    await asyncio.sleep(0)
         else:
             raise ComponentError("Source data must be an Iterable, AsyncIterator, or Component.")
 
@@ -130,12 +127,21 @@ class Component(ABC, AsyncIterator):
         async for _ in self:
             pass
 
+    def shutdown_on(self, shutdown_event: asyncio.Event) -> Component:
+        """
+        Set the shutdown event in a chain of Components
+        """
+        self._shutdown_event = shutdown_event
+        if self._prev_component:
+            self._prev_component.shutdown_on(shutdown_event)
+        return self
+
     def stop(self) -> None:
         """
         Can be overriden for custom stop logic.
         """
-        if self._shutdown:
-            self._shutdown.set()
+        if self._shutdown_event:
+            self._shutdown_event.set()
         if self._prev_component:
             self._prev_component.stop()
 
